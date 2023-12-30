@@ -54,6 +54,9 @@ if __name__ == "__main__":
     start_http_server(8000)
 
     # loop forever reading from the sensor every 30 seconds
+    # TODO: handle exit code cleanly
     while True:
+        # TODO: use interval/ago values to wait optimally
         time.sleep(30)
+        # TODO: handle read exceptions
         get_readings()
