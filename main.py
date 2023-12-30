@@ -1,4 +1,7 @@
+import os
 import time
+import sys
+from signal import signal, SIGINT, SIGTERM
 from datetime import datetime
 
 from aranet4 import client
@@ -30,10 +33,9 @@ g_co2_ppm = Gauge("co2_ppm", "CO2 in Parts per Million")
 e_co2_status = Enum("co2_status", "CO2 status", states=[e.name for e in Status])
 
 
-def get_readings():
-    current = client.get_current_readings(
-        "C1:C2:30:EE:A8:72"
-    )  # TODO: don't hardcode sensor mac
+def get_readings(sensor_bt_mac: str) -> None:
+    # TODO: this blocks, consider async
+    current = client.get_current_readings(sensor_bt_mac)
     print(f"{datetime.utcnow()}: Reading from {current.name}")
 
     i_aranet4.info({"version": current.version, "name": current.name})
@@ -46,9 +48,11 @@ def get_readings():
     e_co2_status.state(Status(current.status).name)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    sensor_bt_mac = os.getenv("SENSOR_BT_MAC", "C1:C2:30:EE:A8:72")
+
     # get some readings before starting the server, to avoid an empty scrape resetting metrics
-    get_readings()
+    get_readings(sensor_bt_mac)
 
     # start the metrics server
     start_http_server(8000)
@@ -59,4 +63,16 @@ if __name__ == "__main__":
         # TODO: use interval/ago values to wait optimally
         time.sleep(30)
         # TODO: handle read exceptions
-        get_readings()
+        get_readings(sensor_bt_mac)
+
+
+def exit_handler(sig, frame) -> None:
+    print(f"{datetime.utcnow()}: Recieved exit code {str(sig)}")
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    print(f"{datetime.utcnow()}: Starting...")
+    signal(SIGINT, exit_handler)
+    signal(SIGTERM, exit_handler)
+    main()
